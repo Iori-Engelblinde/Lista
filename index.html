@@ -244,7 +244,7 @@ input[type=text]::placeholder{color:var(--t3);}
   </div>
   <div id="empty">
     <span class="big">（；へ：）</span>
-    <span>Nenhum anime encontrado</span>
+    <span id="empty-msg">Nenhum anime encontrado</span>
   </div>
   <div id="grid"></div>
 
@@ -386,26 +386,47 @@ function detectSeason(){
   if(m<=2)return'winter';if(m<=5)return'spring';if(m<=8)return'summer';return'fall';
 }
 
-// Fetch Jikan
-async function fetchSeason(season,year){
-  let page=1,all=[],hasNext=true;
-  while(hasNext&&page<=6){
+function delay(ms){return new Promise(r=>setTimeout(r,ms));}
+
+// Simple in-memory cache so switching back to a season doesn't re-fetch
+const _cache = {};
+
+async function fetchSeason(season, year){
+  const cacheKey = `${season}_${year}`;
+  if(_cache[cacheKey]) return _cache[cacheKey];
+
+  let page=1, all=[], hasNext=true;
+
+  while(hasNext && page<=6){
     const url=`https://api.jikan.moe/v4/seasons/${year}/${season}?page=${page}&limit=25`;
-    let res,att=0;
+    let res, att=0;
+
     while(att<3){
-      try{res=await fetch(url);if(res.status===429){await delay(1600);att++;continue;}break;}
-      catch{att++;if(att>=3)throw new Error('fetch failed');await delay(1000);}
+      try{
+        res = await fetch(url);
+        if(res.status===429){ await delay(1800); att++; continue; }
+        break;
+      } catch(e){
+        att++;
+        if(att>=3) throw new Error('network');
+        await delay(1000);
+      }
     }
-    if(!res||!res.ok)break;
-    const j=await res.json();
-    all=all.concat(j.data||[]);
-    hasNext=j.pagination?.has_next_page||false;
+
+    if(!res) throw new Error('network');
+    if(res.status===404) throw new Error('not_found');
+    if(!res.ok) throw new Error(`http_${res.status}`);
+
+    const j = await res.json();
+    all = all.concat(j.data||[]);
+    hasNext = j.pagination?.has_next_page || false;
     page++;
-    if(hasNext)await delay(420);
+    if(hasNext) await delay(450);
   }
+
+  _cache[cacheKey] = all;
   return all;
 }
-function delay(ms){return new Promise(r=>setTimeout(r,ms));}
 
 function normalize(raw){
   return {
@@ -438,9 +459,16 @@ async function loadSeason(){
   try{
     const raw=await fetchSeason(season,year);
     allAnimes=raw.map(normalize).filter(a=>['TV','ONA','OVA','Movie','Special'].includes(a.type));
+    if(allAnimes.length===0){
+      sl.textContent=`${SEASON_LABELS[season]} ${year} — nenhum dado disponível ainda`;
+    }
   }catch(e){
     allAnimes=[];
-    sl.textContent='Erro ao carregar — tente novamente';
+    if(e.message==='not_found'){
+      sl.textContent=`${SEASON_LABELS[season]} ${year} — temporada ainda não disponível na API`;
+    } else {
+      sl.textContent=`Erro de conexão — verifique sua internet e tente novamente`;
+    }
   }
 
   document.getElementById('loading').style.display='none';
@@ -501,7 +529,16 @@ function renderGrid(){
   const seasonKey=getSeasonKey();
   const visible=filterList(sortList(allAnimes,getSort()));
   grid.innerHTML='';
-  document.getElementById('empty').style.display=visible.length===0&&allAnimes.length>0?'flex':'none';
+  const emptyEl = document.getElementById('empty');
+  if(visible.length===0 && allAnimes.length>0){
+    document.getElementById('empty-msg').textContent='Nenhum anime encontrado com esse filtro';
+    emptyEl.style.display='flex';
+  } else if(visible.length===0 && allAnimes.length===0){
+    document.getElementById('empty-msg').textContent='Nenhum dado para esta temporada';
+    emptyEl.style.display='flex';
+  } else {
+    emptyEl.style.display='none';
+  }
 
   visible.forEach(anime=>{
     const entry=getEntry(seasonKey,anime.id);
