@@ -863,6 +863,8 @@ document.getElementById('btn-clear-season').addEventListener('click',()=>{
 });
 
 // ===== INIT =====
+document.getElementById('btn-load').addEventListener('click', loadSeason);
+
 populateYears();
 document.getElementById('sel-season').value=detectSeason();
 loadSeason();
