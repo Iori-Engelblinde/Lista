@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AnimeLista</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;700;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#0a0a0f; --surface:#111118; --s2:#1a1a24; --s3:#22222f;
+  --accent:#e8c547; --a2:#c47aff; --a3:#47b8e8;
+  --text:#f0eee8; --t2:#9896a4; --t3:#5a5870;
+  --border:rgba(255,255,255,0.07); --border2:rgba(255,255,255,0.13);
+  --green:#4a9a4a; --red:#e84747; --orange:#e8944a; --blue:#4a7ae8; --purple:#9a4ae8;
+  --status-watching:#47b8e8; --status-completed:#4a9a4a; --status-dropped:#e84747;
+  --status-paused:#e8944a; --status-planning:#9896a4;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:'Space Mono',monospace;min-height:100vh;overflow-x:hidden;}
+body::before{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");pointer-events:none;z-index:999;opacity:0.5;}
+
+/* NAV */
+nav{display:flex;align-items:center;justify-content:space-between;padding:1rem 2rem;border-bottom:1px solid var(--border);position:sticky;top:0;background:rgba(10,10,15,0.92);backdrop-filter:blur(16px);z-index:100;}
+.logo{display:flex;flex-direction:column;gap:1px;}
+.logo-jp{font-family:'Noto Serif JP',serif;font-size:9px;color:var(--accent);letter-spacing:.4em;text-transform:uppercase;}
+.logo-main{font-family:'Noto Serif JP',serif;font-size:1.4rem;font-weight:900;color:var(--text);line-height:1;}
+.logo-main span{color:var(--accent);}
+.nav-tabs{display:flex;gap:4px;}
+.nav-tab{background:transparent;border:1px solid transparent;border-radius:4px;color:var(--t2);font-family:'Space Mono',monospace;font-size:11px;padding:7px 16px;cursor:pointer;transition:all .15s;}
+.nav-tab:hover{color:var(--text);border-color:var(--border2);}
+.nav-tab.active{background:var(--s2);border-color:var(--border2);color:var(--text);}
+
+/* PAGE SYSTEM */
+.page{display:none;}
+.page.active{display:block;}
+
+/* CONTROLS */
+.controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:1rem 2rem;border-bottom:1px solid var(--border);}
+select,input[type=text]{background:var(--s2);border:1px solid var(--border2);border-radius:4px;color:var(--text);font-family:'Space Mono',monospace;font-size:11px;padding:7px 12px;cursor:pointer;transition:all .15s;}
+select:hover,input[type=text]:hover{border-color:var(--accent);}
+select:focus,input[type=text]:focus{outline:none;border-color:var(--accent);}
+input[type=text]::placeholder{color:var(--t3);}
+.btn{background:var(--s2);border:1px solid var(--border2);border-radius:4px;color:var(--text);font-family:'Space Mono',monospace;font-size:11px;padding:7px 14px;cursor:pointer;transition:all .15s;}
+.btn:hover{border-color:var(--accent);color:var(--accent);}
+.btn-primary{background:var(--accent);border-color:var(--accent);color:#0a0a0f;font-weight:700;}
+.btn-primary:hover{background:#f5d060;border-color:#f5d060;color:#0a0a0f;}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed;}
+.btn-primary:disabled:hover{background:var(--accent);border-color:var(--accent);color:#0a0a0f;}
+.btn-danger{border-color:rgba(232,71,71,.3);color:var(--red);}
+.btn-danger:hover{border-color:var(--red);color:var(--red);}
+.filter-btn.active{border-color:var(--a2);color:var(--a2);}
+.sep{color:var(--t3);font-size:11px;padding:0 2px;}
+.search-w{position:relative;flex:1;min-width:160px;max-width:240px;}
+.search-w input{width:100%;}
+
+/* GRID */
+#grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px;padding:1.5rem 2rem;max-width:1500px;margin:0 auto;}
+.card{position:relative;border-radius:6px;overflow:hidden;border:1px solid var(--border);cursor:pointer;transition:transform .2s,border-color .2s;aspect-ratio:3/4.3;background:var(--surface);}
+.card:hover{transform:translateY(-3px);border-color:var(--border2);}
+.card img{width:100%;height:100%;object-fit:cover;display:block;transition:opacity .3s,filter .3s;}
+.card-overlay{position:absolute;inset:0;background:linear-gradient(to top,rgba(6,6,12,.97) 0%,rgba(6,6,12,.55) 38%,rgba(6,6,12,.05) 65%,transparent 100%);display:flex;flex-direction:column;justify-content:flex-end;padding:10px;}
+.card-title{font-family:'Noto Serif JP',serif;font-size:12px;font-weight:700;line-height:1.3;color:var(--text);text-shadow:0 1px 4px rgba(0,0,0,.8);margin-bottom:4px;}
+.card-meta{display:flex;align-items:center;gap:4px;flex-wrap:wrap;}
+.badge{font-size:9px;letter-spacing:.06em;text-transform:uppercase;padding:2px 5px;border-radius:2px;font-weight:700;}
+.badge-score{background:rgba(232,197,71,.18);color:var(--accent);border:1px solid rgba(232,197,71,.25);}
+.badge-myscore{background:rgba(196,122,255,.18);color:var(--a2);border:1px solid rgba(196,122,255,.25);}
+.badge-type{background:rgba(71,184,232,.12);color:var(--a3);border:1px solid rgba(71,184,232,.18);}
+.badge-ep{background:rgba(255,255,255,.07);color:var(--t2);border:1px solid var(--border);}
+.card-status-bar{position:absolute;bottom:0;left:0;right:0;height:3px;}
+.status-bar-watching{background:var(--status-watching);}
+.status-bar-completed{background:var(--status-completed);}
+.status-bar-dropped{background:var(--status-dropped);}
+.status-bar-paused{background:var(--status-paused);}
+.status-bar-planning{background:var(--status-planning);}
+.card-status-icon{position:absolute;top:7px;right:7px;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;background:rgba(10,10,15,.8);border:1px solid rgba(255,255,255,.15);}
+.card-ep-progress{position:absolute;top:7px;left:7px;background:rgba(10,10,15,.85);border:1px solid var(--border2);border-radius:3px;font-size:9px;padding:2px 5px;color:var(--t2);}
+.card-ep-progress.has-progress{color:var(--a3);}
+.card:hover .card-overlay{background:linear-gradient(to top,rgba(6,6,12,.99) 0%,rgba(6,6,12,.7) 45%,rgba(6,6,12,.2) 70%,transparent 100%);}
+
+/* LOADING / EMPTY */
+#loading{display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:80px 20px;color:var(--t2);font-size:11px;}
+.loader{width:32px;height:32px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+#empty{display:none;flex-direction:column;align-items:center;gap:10px;padding:80px 20px;color:var(--t3);font-size:12px;text-align:center;}
+#empty .big{font-size:38px;}
+
+/* SECTION LABEL */
+.section-label{max-width:1500px;margin:1rem auto 0;padding:0 2rem;font-size:11px;color:var(--t2);letter-spacing:.12em;text-transform:uppercase;display:flex;align-items:center;gap:10px;}
+.section-label::after{content:'';flex:1;height:1px;background:var(--border);}
+
+/* BOTTOM BAR */
+#bottom-bar{position:sticky;bottom:0;background:rgba(10,10,15,.92);backdrop-filter:blur(14px);border-top:1px solid var(--border);padding:10px 2rem;display:flex;align-items:center;gap:12px;z-index:50;flex-wrap:wrap;}
+.progress-w{flex:1;min-width:180px;max-width:360px;}
+.progress-label{font-size:10px;color:var(--t2);margin-bottom:3px;display:flex;justify-content:space-between;}
+.progress-track{height:3px;background:var(--s3);border-radius:2px;overflow:hidden;}
+.progress-fill{height:100%;background:var(--accent);border-radius:2px;transition:width .4s ease;}
+.counter-text{font-size:10px;color:var(--t3);}
+.time-filter-group{display:flex;gap:4px;margin-left:auto;}
+.time-btn{background:transparent;border:1px solid var(--border2);border-radius:3px;color:var(--t2);font-family:'Space Mono',monospace;font-size:10px;padding:4px 10px;cursor:pointer;transition:all .15s;}
+.time-btn:hover{border-color:var(--accent);color:var(--accent);}
+.time-btn.active{background:var(--s2);border-color:var(--a3);color:var(--a3);}
+
+/* ========== MODAL ========== */
+.modal-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:500;align-items:center;justify-content:center;padding:20px;}
+.modal-backdrop.open{display:flex;}
+.modal{background:var(--s2);border:1px solid var(--border2);border-radius:10px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;position:relative;}
+.modal-img-wrap{position:relative;height:200px;overflow:hidden;border-radius:10px 10px 0 0;}
+.modal-img-wrap img{width:100%;height:100%;object-fit:cover;object-position:top;}
+.modal-img-grad{position:absolute;inset:0;background:linear-gradient(to top,var(--s2) 0%,transparent 60%);}
+.modal-body{padding:16px 20px 20px;}
+.modal-title{font-family:'Noto Serif JP',serif;font-size:1.1rem;font-weight:900;line-height:1.3;margin-bottom:2px;}
+.modal-title-jp{font-family:'Noto Serif JP',serif;font-size:11px;color:var(--t2);margin-bottom:12px;}
+.modal-row{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+.modal-label{font-size:10px;color:var(--t2);min-width:90px;letter-spacing:.06em;text-transform:uppercase;}
+.modal-close{position:absolute;top:10px;right:10px;background:rgba(10,10,15,.7);border:1px solid var(--border2);border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;color:var(--t2);transition:all .15s;z-index:2;}
+.modal-close:hover{color:var(--text);border-color:var(--border2);}
+.status-select{background:var(--s3);border:1px solid var(--border2);border-radius:4px;color:var(--text);font-family:'Space Mono',monospace;font-size:11px;padding:6px 10px;width:100%;cursor:pointer;}
+.status-select:focus{outline:none;border-color:var(--accent);}
+.ep-input{background:var(--s3);border:1px solid var(--border2);border-radius:4px;color:var(--text);font-family:'Space Mono',monospace;font-size:12px;padding:6px 10px;width:70px;text-align:center;}
+.ep-input:focus{outline:none;border-color:var(--a3);}
+.ep-total{color:var(--t3);font-size:11px;}
+.score-grid{display:grid;grid-template-columns:repeat(10,1fr);gap:4px;width:100%;}
+.score-btn{background:var(--s3);border:1px solid var(--border2);border-radius:3px;color:var(--t2);font-family:'Space Mono',monospace;font-size:10px;padding:5px 0;cursor:pointer;text-align:center;transition:all .15s;}
+.score-btn:hover{border-color:var(--accent);color:var(--accent);}
+.score-btn.active{background:rgba(232,197,71,.2);border-color:var(--accent);color:var(--accent);font-weight:700;}
+.score-btn.active-0{background:rgba(255,255,255,.05);border-color:var(--border2);color:var(--t3);}
+.modal-note{font-size:10px;color:var(--t3);line-height:1.5;margin-top:4px;}
+.modal-note b{color:var(--t2);}
+.modal-mal-link{font-size:10px;color:var(--a3);text-decoration:none;display:inline-flex;align-items:center;gap:4px;margin-top:8px;}
+.modal-mal-link:hover{text-decoration:underline;}
+.modal-actions{display:flex;gap:8px;margin-top:14px;}
+.modal-save{flex:1;background:var(--accent);border:none;border-radius:4px;color:#0a0a0f;font-family:'Space Mono',monospace;font-size:12px;font-weight:700;padding:9px;cursor:pointer;transition:background .15s;}
+.modal-save:hover{background:#f5d060;}
+.modal-remove{background:transparent;border:1px solid rgba(232,71,71,.3);border-radius:4px;color:var(--red);font-family:'Space Mono',monospace;font-size:11px;padding:9px 14px;cursor:pointer;transition:all .15s;}
+.modal-remove:hover{border-color:var(--red);}
+
+/* ========== PROFILE PAGE ========== */
+#page-profile{padding:0 0 4rem;}
+.profile-header{padding:2rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap;}
+.profile-avatar{width:72px;height:72px;border-radius:50%;background:var(--s3);border:2px solid var(--border2);display:flex;align-items:center;justify-content:center;font-family:'Noto Serif JP',serif;font-size:28px;cursor:pointer;overflow:hidden;flex-shrink:0;}
+.profile-avatar img{width:100%;height:100%;object-fit:cover;}
+.profile-name-wrap{flex:1;}
+.profile-name{font-family:'Noto Serif JP',serif;font-size:1.5rem;font-weight:900;cursor:pointer;display:inline-flex;align-items:center;gap:8px;}
+.profile-name-edit{font-size:10px;color:var(--t3);}
+.profile-name-input{background:transparent;border:none;border-bottom:1px solid var(--accent);color:var(--text);font-family:'Noto Serif JP',serif;font-size:1.5rem;font-weight:900;outline:none;width:100%;max-width:300px;}
+.profile-stats{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;}
+.pstat{background:var(--s2);border:1px solid var(--border);border-radius:4px;padding:6px 14px;font-size:10px;color:var(--t2);display:flex;align-items:center;gap:6px;}
+.pstat strong{font-size:15px;}
+.pstat.watching strong{color:var(--status-watching);}
+.pstat.completed strong{color:var(--status-completed);}
+.pstat.dropped strong{color:var(--status-dropped);}
+.pstat.paused strong{color:var(--status-paused);}
+.pstat.planning strong{color:var(--status-planning);}
+.pstat.score-avg strong{color:var(--accent);}
+
+/* LIST SECTIONS */
+.list-section{max-width:1200px;margin:0 auto;padding:1.5rem 2rem 0;}
+.list-section-head{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.list-section-head h2{font-family:'Noto Serif JP',serif;font-size:14px;font-weight:700;letter-spacing:.06em;}
+.status-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.dot-watching{background:var(--status-watching);}
+.dot-completed{background:var(--status-completed);}
+.dot-dropped{background:var(--status-dropped);}
+.dot-paused{background:var(--status-paused);}
+.dot-planning{background:var(--status-planning);}
+.list-section-count{font-size:10px;color:var(--t3);margin-left:auto;}
+.list-section-head::after{content:'';flex:1;height:1px;background:var(--border);}
+.anime-list-table{width:100%;border-collapse:collapse;font-size:12px;}
+.anime-list-table th{font-size:9px;color:var(--t3);letter-spacing:.1em;text-transform:uppercase;padding:6px 10px;text-align:left;border-bottom:1px solid var(--border);}
+.anime-list-table td{padding:7px 10px;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:middle;}
+.anime-list-table tr:hover td{background:var(--s2);cursor:pointer;}
+.lt-cover{width:32px;height:44px;object-fit:cover;border-radius:2px;display:block;}
+.lt-cover-ph{width:32px;height:44px;background:var(--s3);border-radius:2px;}
+.lt-title{font-family:'Noto Serif JP',serif;font-size:12px;font-weight:700;color:var(--text);}
+.lt-title-jp{font-size:9px;color:var(--t3);margin-top:1px;}
+.lt-score{color:var(--accent);font-size:11px;}
+.lt-score.none{color:var(--t3);}
+.lt-ep{color:var(--t2);font-size:11px;}
+.lt-ep .done{color:var(--a3);}
+.lt-type{font-size:9px;color:var(--t3);letter-spacing:.06em;text-transform:uppercase;}
+.lt-season{font-size:9px;color:var(--t3);}
+.empty-section{padding:20px 0;color:var(--t3);font-size:11px;text-align:center;}
+
+/* TIME FILTER PROFILE */
+.profile-time-bar{display:flex;gap:6px;padding:1rem 2rem;border-bottom:1px solid var(--border);max-width:1200px;margin:0 auto;}
+.profile-time-bar .time-btn{font-size:11px;padding:5px 14px;}
+
+/* RESPONSIVE */
+@media(max-width:640px){
+  nav{padding:.75rem 1rem;}
+  .controls,#grid,.list-section{padding-left:1rem;padding-right:1rem;}
+  #grid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:9px;}
+  #bottom-bar{padding:8px 1rem;}
+  .time-filter-group{width:100%;}
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="logo">
+    <span class="logo-jp">アニメ追跡者</span>
+    <span class="logo-main">Anime<span>Lista</span></span>
+  </div>
+  <div class="nav-tabs">
+    <button class="nav-tab active" data-page="page-browse">⊞ Temporadas</button>
+    <button class="nav-tab" data-page="page-profile">◉ Meu Perfil</button>
+  </div>
+</nav>
+
+<!-- ===== BROWSE PAGE ===== -->
+<div id="page-browse" class="page active">
+  <div class="controls">
+    <select id="sel-season">
+      <option value="winter">Winter (Jan–Mar)</option>
+      <option value="spring">Spring (Abr–Jun)</option>
+      <option value="summer">Summer (Jul–Set)</option>
+      <option value="fall">Fall (Out–Dez)</option>
+    </select>
+    <select id="sel-year"></select>
+    <button class="btn btn-primary" id="btn-load">▶ Carregar</button>
+    <span class="sep">|</span>
+    <button class="btn filter-btn active" data-filter="all">Todos</button>
+    <button class="btn filter-btn" data-filter="watching">Assistindo</button>
+    <button class="btn filter-btn" data-filter="completed">Completos</button>
+    <button class="btn filter-btn" data-filter="pending">Sem status</button>
+    <span class="sep">|</span>
+    <select id="sel-sort">
+      <option value="score">Melhor nota MAL</option>
+      <option value="myscore">Minha nota</option>
+      <option value="title">Título A-Z</option>
+      <option value="members">Popularidade</option>
+      <option value="episodes">Mais episódios</option>
+    </select>
+    <div class="search-w"><input type="text" id="search" placeholder="Buscar..."></div>
+  </div>
+
+  <div id="section-label" class="section-label" style="display:none">—</div>
+
+  <div id="loading">
+    <div class="loader"></div>
+    <span>Buscando dados do MyAnimeList via Jikan API...</span>
+  </div>
+  <div id="empty">
+    <span class="big">（；へ：）</span>
+    <span id="empty-msg">Nenhum anime encontrado</span>
+  </div>
+  <div id="grid"></div>
+
+  <div id="bottom-bar">
+    <div class="progress-w">
+      <div class="progress-label"><span>Progresso da temporada</span><span id="pct-label">0%</span></div>
+      <div class="progress-track"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+    </div>
+    <span class="counter-text" id="counter-text">—</span>
+    <button class="btn btn-danger" id="btn-clear-season" style="font-size:10px;padding:5px 10px;">✕ Limpar temporada</button>
+    <div class="time-filter-group">
+      <button class="time-btn active" data-time="season">Esta temporada</button>
+      <button class="time-btn" data-time="year">Este ano</button>
+      <button class="time-btn" data-time="all">Todos os tempos</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== PROFILE PAGE ===== -->
+<div id="page-profile" class="page">
+  <div class="profile-header">
+    <div class="profile-avatar" id="profile-avatar" title="Clique para mudar emoji">👤</div>
+    <div class="profile-name-wrap">
+      <div id="profile-name-display" class="profile-name">
+        <span id="profile-name-text">Seu Nome</span>
+        <span class="profile-name-edit">✎</span>
+      </div>
+      <div id="profile-name-edit-wrap" style="display:none">
+        <input type="text" class="profile-name-input" id="profile-name-input" maxlength="30" placeholder="Seu nome...">
+      </div>
+      <div class="profile-stats" id="profile-stats"></div>
+    </div>
+  </div>
+
+  <div class="profile-time-bar">
+    <button class="time-btn active" data-ptime="all">Todos</button>
+    <button class="time-btn" data-ptime="year">Este ano</button>
+    <button class="time-btn" data-ptime="season">Esta temporada</button>
+  </div>
+
+  <div id="profile-lists"></div>
+</div>
+
+<!-- ===== MODAL ===== -->
+<div class="modal-backdrop" id="modal-backdrop">
+  <div class="modal" id="modal">
+    <button class="modal-close" id="modal-close">✕</button>
+    <div class="modal-img-wrap">
+      <img id="modal-img" src="" alt="">
+      <div class="modal-img-grad"></div>
+    </div>
+    <div class="modal-body">
+      <div class="modal-title" id="modal-title"></div>
+      <div class="modal-title-jp" id="modal-title-jp"></div>
+
+      <div class="modal-row">
+        <span class="modal-label">Status</span>
+        <select class="status-select" id="modal-status">
+          <option value="">— Sem status</option>
+          <option value="watching">▶ Assistindo</option>
+          <option value="completed">✓ Completo</option>
+          <option value="paused">⏸ Pausado</option>
+          <option value="dropped">✕ Droppado</option>
+          <option value="planning">○ Planejado</option>
+        </select>
+      </div>
+
+      <div class="modal-row">
+        <span class="modal-label">Episódios</span>
+        <input type="number" class="ep-input" id="modal-ep" min="0" max="9999" value="0">
+        <span class="ep-total" id="modal-ep-total">/ ? ep</span>
+      </div>
+
+      <div class="modal-row" style="align-items:flex-start;flex-direction:column;gap:6px;">
+        <span class="modal-label">Minha nota</span>
+        <div class="score-grid" id="score-grid"></div>
+        <p class="modal-note"><b id="score-label-text">Sem nota</b></p>
+      </div>
+
+      <a class="modal-mal-link" id="modal-mal-link" href="#" target="_blank" rel="noopener">↗ Ver no MyAnimeList</a>
+
+      <div class="modal-actions">
+        <button class="modal-save" id="modal-save">Salvar</button>
+        <button class="modal-remove" id="modal-remove">Remover</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const STORE = 'animelista_v3';
+const PROFILE_STORE = 'animelista_profile_v1';
+const SEASONS = ['winter','spring','summer','fall'];
+const SEASON_LABELS = {winter:'Winter',spring:'Spring',summer:'Summer',fall:'Fall'};
+const EMOJIS = ['👤','🐱','🦊','🐺','👁','⚔️','🌙','⭐','🔥','💀','🌸','🦋','🐉','🌊','🎭'];
+const SCORE_LABELS = {0:'Sem nota',1:'Horrível',2:'Muito ruim',3:'Ruim',4:'Fraco',5:'Mediano',6:'Bom',7:'Muito bom',8:'Ótimo',9:'Excelente',10:'Obra-prima'};
+const STATUS_ICONS = {watching:'▶',completed:'✓',dropped:'✕',paused:'⏸',planning:'○'};
+const STATUS_LABELS = {watching:'Assistindo',completed:'Completo',dropped:'Droppado',paused:'Pausado',planning:'Planejado'};
+
+let allAnimes = [];
+let userDB = loadDB();
+let profile = loadProfile();
+let filterMode = 'all';
+let currentSeason = '';
+let currentYear = '';
+let timeScope = 'season';
+let profileTimeScope = 'all';
+let modalAnimeId = null;
+let modalSeasonKey = null;
+
+function loadDB(){try{return JSON.parse(localStorage.getItem(STORE))||{};}catch{return {};}}
+function saveDB(){localStorage.setItem(STORE,JSON.stringify(userDB));}
+function loadProfile(){try{return JSON.parse(localStorage.getItem(PROFILE_STORE))||{name:'Seu Nome',avatar:'👤'};}catch{return {name:'Seu Nome',avatar:'👤'};}}
+function saveProfile(){localStorage.setItem(PROFILE_STORE,JSON.stringify(profile));}
+
+function dbKey(seasonKey, malId){return `${seasonKey}__${malId}`;}
+function getEntry(seasonKey, malId){return userDB[dbKey(seasonKey,malId)]||null;}
+function setEntry(seasonKey, malId, data){
+  if(!data){delete userDB[dbKey(seasonKey,malId)];}
+  else{userDB[dbKey(seasonKey,malId)]={...data,seasonKey,malId,title:data.title,titleJp:data.titleJp,image:data.image,type:data.type,totalEp:data.totalEp,year:data.year,season:data.season};}
+  saveDB();
+}
+
+// Year selector
+function populateYears(){
+  const sel = document.getElementById('sel-year');
+  const now = new Date();
+  const cur = now.getFullYear();
+  for(let y=cur+1;y>=2000;y--){
+    const o=document.createElement('option');
+    o.value=y; o.textContent=y;
+    if(y===cur)o.selected=true;
+    sel.appendChild(o);
+  }
+}
+
+function detectSeason(){
+  const m=new Date().getMonth();
+  if(m<=2)return'winter';if(m<=5)return'spring';if(m<=8)return'summer';return'fall';
+}
+
+function delay(ms){return new Promise(r=>setTimeout(r,ms));}
+
+// Simple in-memory cache so switching back to a season doesn't re-fetch
+const _cache = {};
+
+async function fetchSeason(season, year){
+  const cacheKey = `${season}_${year}`;
+  if(_cache[cacheKey]) return _cache[cacheKey];
+
+  let page=1, all=[], hasNext=true;
+
+  while(hasNext && page<=6){
+    const url=`https://api.jikan.moe/v4/seasons/${year}/${season}?page=${page}&limit=25`;
+    let res, att=0;
+
+    while(att<3){
+      try{
+        res = await fetch(url);
+        if(res.status===429){ await delay(1800); att++; continue; }
+        break;
+      } catch(e){
+        att++;
+        if(att>=3) throw new Error('network');
+        await delay(1000);
+      }
+    }
+
+    if(!res) throw new Error('network');
+    if(res.status===404) throw new Error('not_found');
+    if(!res.ok) throw new Error(`http_${res.status}`);
+
+    const j = await res.json();
+    all = all.concat(j.data||[]);
+    hasNext = j.pagination?.has_next_page || false;
+    page++;
+    if(hasNext) await delay(450);
+  }
+
+  _cache[cacheKey] = all;
+  return all;
+}
+
+function normalize(raw){
+  return {
+    id:raw.mal_id,
+    title:raw.title||raw.title_english||'—',
+    titleJp:raw.title_japanese||'',
+    image:raw.images?.jpg?.large_image_url||raw.images?.jpg?.image_url||'',
+    score:raw.score||null,
+    episodes:raw.episodes||null,
+    type:raw.type||'',
+    members:raw.members||0,
+    url:raw.url||'',
+  };
+}
+
+async function loadSeason(){
+  const season=document.getElementById('sel-season').value;
+  const year=document.getElementById('sel-year').value;
+  currentSeason=season; currentYear=year;
+  const key=`${season}_${year}`;
+
+  const btn=document.getElementById('btn-load');
+  btn.disabled=true; btn.textContent='...';
+  document.getElementById('grid').innerHTML='';
+  document.getElementById('loading').style.display='flex';
+  document.getElementById('empty').style.display='none';
+  const sl=document.getElementById('section-label');
+  sl.style.display='flex'; sl.textContent=`${SEASON_LABELS[season]} ${year}`;
+
+  try{
+    const raw=await fetchSeason(season,year);
+    allAnimes=raw.map(normalize).filter(a=>['TV','ONA','OVA','Movie','Special'].includes(a.type));
+    if(allAnimes.length===0){
+      sl.textContent=`${SEASON_LABELS[season]} ${year} — nenhum dado disponível ainda`;
+    }
+  }catch(e){
+    allAnimes=[];
+    if(e.message==='not_found'){
+      sl.textContent=`${SEASON_LABELS[season]} ${year} — temporada ainda não disponível na API`;
+    } else {
+      sl.textContent=`Erro de conexão — verifique sua internet e tente novamente`;
+    }
+  }
+
+  document.getElementById('loading').style.display='none';
+  btn.disabled=false; btn.textContent='▶ Carregar';
+  renderGrid();
+}
+
+function getSort(){return document.getElementById('sel-sort').value;}
+function getSearch(){return document.getElementById('search').value.trim().toLowerCase();}
+
+function getSeasonKey(){return `${currentSeason}_${currentYear}`;}
+
+function applyTimeScope(list){
+  if(timeScope==='season') return list; // already season
+  const now=new Date(); const curY=now.getFullYear();
+  const curS=detectSeason();
+  if(timeScope==='year'){
+    // show all animes from entries that are in this year
+    return allAnimes; // grid is already season-based; for 'year' we'd need a different data source
+  }
+  return list;
+}
+
+function sortList(list,mode){
+  const seasonKey=getSeasonKey();
+  const s=[...list];
+  if(mode==='score') s.sort((a,b)=>(b.score||0)-(a.score||0));
+  else if(mode==='myscore'){
+    s.sort((a,b)=>{
+      const sa=getEntry(seasonKey,a.id)?.score||0;
+      const sb=getEntry(seasonKey,b.id)?.score||0;
+      return sb-sa;
+    });
+  }
+  else if(mode==='title') s.sort((a,b)=>a.title.localeCompare(b.title));
+  else if(mode==='members') s.sort((a,b)=>(b.members||0)-(a.members||0));
+  else if(mode==='episodes') s.sort((a,b)=>(b.episodes||0)-(a.episodes||0));
+  return s;
+}
+
+function filterList(list){
+  const q=getSearch();
+  const seasonKey=getSeasonKey();
+  return list.filter(a=>{
+    const matchQ=!q||a.title.toLowerCase().includes(q)||a.titleJp.toLowerCase().includes(q);
+    if(!matchQ) return false;
+    const entry=getEntry(seasonKey,a.id);
+    const status=entry?.status||'';
+    if(filterMode==='watching') return status==='watching';
+    if(filterMode==='completed') return status==='completed';
+    if(filterMode==='pending') return !status;
+    return true;
+  });
+}
+
+function renderGrid(){
+  const grid=document.getElementById('grid');
+  const seasonKey=getSeasonKey();
+  const visible=filterList(sortList(allAnimes,getSort()));
+  grid.innerHTML='';
+  const emptyEl = document.getElementById('empty');
+  if(visible.length===0 && allAnimes.length>0){
+    document.getElementById('empty-msg').textContent='Nenhum anime encontrado com esse filtro';
+    emptyEl.style.display='flex';
+  } else if(visible.length===0 && allAnimes.length===0){
+    document.getElementById('empty-msg').textContent='Nenhum dado para esta temporada';
+    emptyEl.style.display='flex';
+  } else {
+    emptyEl.style.display='none';
+  }
+
+  visible.forEach(anime=>{
+    const entry=getEntry(seasonKey,anime.id);
+    const status=entry?.status||'';
+    const myScore=entry?.score||0;
+    const watchedEp=entry?.ep||0;
+
+    const card=document.createElement('div');
+    card.className='card';
+
+    const img=anime.image?`<img src="${anime.image}" alt="${anime.title}" loading="lazy" onerror="this.style.display='none'">`
+      :`<div style="width:100%;height:100%;background:var(--s3);display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--t3);">sem capa</div>`;
+
+    const scoreBadge=anime.score?`<span class="badge badge-score">★${anime.score.toFixed(1)}</span>`:'';
+    const myScoreBadge=myScore?`<span class="badge badge-myscore">◆${myScore}</span>`:'';
+    const typeBadge=anime.type?`<span class="badge badge-type">${anime.type}</span>`:'';
+    const epBadge=anime.episodes?`<span class="badge badge-ep">${anime.episodes}ep</span>`:'';
+
+    const statusBar=status?`<div class="card-status-bar status-bar-${status}"></div>`:'';
+    const statusIcon=status?`<div class="card-status-icon">${STATUS_ICONS[status]}</div>`:'';
+
+    const hasEpProgress=watchedEp>0;
+    const epLabel=anime.episodes?`${watchedEp}/${anime.episodes}`:(watchedEp>0?`${watchedEp}/?`:'');
+    const epProgress=epLabel?`<div class="card-ep-progress${hasEpProgress?' has-progress':''}">${epLabel}</div>`:'';
+
+    card.innerHTML=`${img}
+      <div class="card-overlay">
+        <div class="card-title">${anime.title}</div>
+        <div class="card-meta">${scoreBadge}${myScoreBadge}${typeBadge}${epBadge}</div>
+      </div>
+      ${statusBar}${statusIcon}${epProgress}`;
+
+    card.addEventListener('click',()=>openModal(anime,seasonKey));
+    grid.appendChild(card);
+  });
+
+  updateStats();
+}
+
+function updateStats(){
+  const seasonKey=getSeasonKey();
+  const total=allAnimes.length;
+  const completed=allAnimes.filter(a=>{const e=getEntry(seasonKey,a.id);return e?.status==='completed'||e?.status==='watching';}).length;
+  const pct=total>0?Math.round(completed/total*100):0;
+  document.getElementById('progress-fill').style.width=pct+'%';
+  document.getElementById('pct-label').textContent=pct+'%';
+  document.getElementById('counter-text').textContent=`${completed}/${total} em andamento`;
+}
+
+// ===== MODAL =====
+let _modalAnime=null;
+let _modalSeasonKey=null;
+
+function openModal(anime,seasonKey){
+  _modalAnime=anime; _modalSeasonKey=seasonKey;
+  const entry=getEntry(seasonKey,anime.id)||{};
+
+  document.getElementById('modal-img').src=anime.image||'';
+  document.getElementById('modal-title').textContent=anime.title;
+  document.getElementById('modal-title-jp').textContent=anime.titleJp||'';
+  document.getElementById('modal-status').value=entry.status||'';
+  document.getElementById('modal-ep').value=entry.ep||0;
+  document.getElementById('modal-ep').max=anime.episodes||9999;
+  document.getElementById('modal-ep-total').textContent=`/ ${anime.episodes?anime.episodes+'ep':'? ep'}`;
+  const malLink=document.getElementById('modal-mal-link');
+  malLink.href=anime.url||'#'; malLink.style.display=anime.url?'inline-flex':'none';
+
+  buildScoreGrid(entry.score||0);
+  document.getElementById('modal-backdrop').classList.add('open');
+}
+
+function buildScoreGrid(active){
+  const grid=document.getElementById('score-grid');
+  grid.innerHTML='';
+  for(let i=1;i<=10;i++){
+    const b=document.createElement('button');
+    b.className='score-btn'+(active===i?' active':'');
+    b.textContent=i;
+    b.dataset.score=i;
+    b.addEventListener('click',()=>{
+      document.querySelectorAll('.score-btn').forEach(x=>x.classList.remove('active'));
+      b.classList.add('active');
+      document.getElementById('score-label-text').textContent=SCORE_LABELS[i];
+    });
+    grid.appendChild(b);
+  }
+  // "clear score" 
+  const bc=document.createElement('button');
+  bc.className='score-btn'+(active===0?' active-0':'');
+  bc.textContent='—'; bc.dataset.score=0;
+  bc.title='Remover nota';
+  bc.style.gridColumn='span 10'; bc.style.marginTop='2px'; bc.style.fontSize='9px'; bc.style.color='var(--t3)';
+  bc.addEventListener('click',()=>{
+    document.querySelectorAll('.score-btn').forEach(x=>{x.classList.remove('active');x.classList.remove('active-0');});
+    bc.classList.add('active-0');
+    document.getElementById('score-label-text').textContent=SCORE_LABELS[0];
+  });
+  grid.appendChild(bc);
+  document.getElementById('score-label-text').textContent=SCORE_LABELS[active||0];
+}
+
+document.getElementById('modal-save').addEventListener('click',()=>{
+  const anime=_modalAnime; const seasonKey=_modalSeasonKey;
+  if(!anime) return;
+  const status=document.getElementById('modal-status').value;
+  const ep=parseInt(document.getElementById('modal-ep').value)||0;
+  const activeScore=document.querySelector('.score-btn.active');
+  const score=activeScore?parseInt(activeScore.dataset.score):0;
+
+  if(!status&&ep===0&&score===0){
+    setEntry(seasonKey,anime.id,null);
+  } else {
+    setEntry(seasonKey,anime.id,{
+      status, ep, score,
+      title:anime.title, titleJp:anime.titleJp, image:anime.image,
+      type:anime.type, totalEp:anime.episodes,
+      year:currentYear, season:currentSeason
+    });
+  }
+  document.getElementById('modal-backdrop').classList.remove('open');
+  renderGrid();
+  if(!document.getElementById('page-profile').classList.contains('active')) return;
+  renderProfile();
+});
+
+document.getElementById('modal-remove').addEventListener('click',()=>{
+  if(_modalAnime)setEntry(_modalSeasonKey,_modalAnime.id,null);
+  document.getElementById('modal-backdrop').classList.remove('open');
+  renderGrid();
+});
+
+document.getElementById('modal-close').addEventListener('click',()=>{
+  document.getElementById('modal-backdrop').classList.remove('open');
+});
+
+document.getElementById('modal-backdrop').addEventListener('click',e=>{
+  if(e.target===document.getElementById('modal-backdrop'))
+    document.getElementById('modal-backdrop').classList.remove('open');
+});
+
+// ===== PROFILE =====
+function renderProfile(){
+  const now=new Date();
+  const curY=parseInt(now.getFullYear());
+  const curS=detectSeason();
+
+  // collect all entries
+  let entries=Object.values(userDB);
+
+  if(profileTimeScope==='year'){
+    entries=entries.filter(e=>parseInt(e.year)===curY);
+  } else if(profileTimeScope==='season'){
+    entries=entries.filter(e=>e.season===curS&&parseInt(e.year)===curY);
+  }
+
+  const byStatus={watching:[],completed:[],paused:[],dropped:[],planning:[]};
+  entries.forEach(e=>{
+    const s=e.status||'planning';
+    if(byStatus[s]) byStatus[s].push(e);
+  });
+
+  // stats
+  const allScores=entries.filter(e=>e.score>0).map(e=>e.score);
+  const avgScore=allScores.length>0?(allScores.reduce((a,b)=>a+b,0)/allScores.length).toFixed(1):null;
+  const totalEpWatched=entries.reduce((acc,e)=>acc+(e.ep||0),0);
+
+  const statsEl=document.getElementById('profile-stats');
+  statsEl.innerHTML=`
+    <div class="pstat watching"><strong>${byStatus.watching.length}</strong> assistindo</div>
+    <div class="pstat completed"><strong>${byStatus.completed.length}</strong> completos</div>
+    <div class="pstat paused"><strong>${byStatus.paused.length}</strong> pausados</div>
+    <div class="pstat dropped"><strong>${byStatus.dropped.length}</strong> droppados</div>
+    <div class="pstat planning"><strong>${byStatus.planning.length}</strong> planejados</div>
+    ${avgScore?`<div class="pstat score-avg"><strong>${avgScore}</strong> nota média</div>`:''}
+    ${totalEpWatched>0?`<div class="pstat"><strong>${totalEpWatched}</strong> ep assistidos</div>`:''}
+  `;
+
+  const listsEl=document.getElementById('profile-lists');
+  listsEl.innerHTML='';
+
+  const order=['watching','completed','paused','dropped','planning'];
+  order.forEach(status=>{
+    const items=byStatus[status];
+    const section=document.createElement('div');
+    section.className='list-section';
+    section.innerHTML=`
+      <div class="list-section-head">
+        <div class="status-dot dot-${status}"></div>
+        <h2>${STATUS_LABELS[status]}</h2>
+        <span class="list-section-count">${items.length}</span>
+      </div>
+    `;
+    if(items.length===0){
+      section.innerHTML+=`<div class="empty-section">Nenhum anime aqui ainda</div>`;
+    } else {
+      const table=document.createElement('table');
+      table.className='anime-list-table';
+      table.innerHTML=`<thead><tr>
+        <th style="width:42px"></th>
+        <th>Título</th>
+        <th style="width:70px">Ep</th>
+        <th style="width:60px">Nota</th>
+        <th style="width:55px">Tipo</th>
+        <th style="width:80px">Temporada</th>
+      </tr></thead>`;
+      const tbody=document.createElement('tbody');
+      items.forEach(e=>{
+        const tr=document.createElement('tr');
+        tr.innerHTML=`
+          <td>${e.image?`<img class="lt-cover" src="${e.image}" loading="lazy">`:`<div class="lt-cover-ph"></div>`}</td>
+          <td><div class="lt-title">${e.title||'—'}</div>${e.titleJp?`<div class="lt-title-jp">${e.titleJp}</div>`:''}</td>
+          <td class="lt-ep">${e.ep>0?`<span class="done">${e.ep}</span>`:0}${e.totalEp?`/${e.totalEp}`:''}</td>
+          <td class="lt-score ${e.score?'':'none'}">${e.score?`◆${e.score}`:'—'}</td>
+          <td class="lt-type">${e.type||'—'}</td>
+          <td class="lt-season">${e.season?`${SEASON_LABELS[e.season]||e.season} ${e.year}`:e.year||'—'}</td>
+        `;
+        tr.addEventListener('click',()=>{
+          // open modal with minimal anime obj from entry
+          const fakeAnime={id:e.malId,title:e.title,titleJp:e.titleJp,image:e.image,type:e.type,episodes:e.totalEp,url:''};
+          openModal(fakeAnime,e.seasonKey);
+        });
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+      section.appendChild(table);
+    }
+    listsEl.appendChild(section);
+  });
+
+  document.getElementById('profile-name-text').textContent=profile.name||'Seu Nome';
+  document.getElementById('profile-avatar').textContent=profile.avatar||'👤';
+}
+
+// Profile name editing
+document.getElementById('profile-name-display').addEventListener('click',()=>{
+  document.getElementById('profile-name-display').style.display='none';
+  const inp=document.getElementById('profile-name-input');
+  document.getElementById('profile-name-edit-wrap').style.display='block';
+  inp.value=profile.name||'';
+  inp.focus();
+});
+
+document.getElementById('profile-name-input').addEventListener('keydown',e=>{
+  if(e.key==='Enter'||e.key==='Escape'){
+    const v=document.getElementById('profile-name-input').value.trim();
+    if(v) profile.name=v;
+    saveProfile();
+    document.getElementById('profile-name-edit-wrap').style.display='none';
+    document.getElementById('profile-name-display').style.display='inline-flex';
+    document.getElementById('profile-name-text').textContent=profile.name;
+  }
+});
+
+// Avatar cycling
+document.getElementById('profile-avatar').addEventListener('click',()=>{
+  const cur=EMOJIS.indexOf(profile.avatar);
+  profile.avatar=EMOJIS[(cur+1)%EMOJIS.length];
+  document.getElementById('profile-avatar').textContent=profile.avatar;
+  saveProfile();
+});
+
+// Profile time filter
+document.querySelectorAll('[data-ptime]').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    profileTimeScope=btn.dataset.ptime;
+    document.querySelectorAll('[data-ptime]').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    renderProfile();
+  });
+});
+
+// ===== NAV TABS =====
+document.querySelectorAll('.nav-tab').forEach(tab=>{
+  tab.addEventListener('click',()=>{
+    document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+    document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById(tab.dataset.page).classList.add('active');
+    if(tab.dataset.page==='page-profile') renderProfile();
+  });
+});
+
+// ===== FILTER BUTTONS =====
+document.querySelectorAll('[data-filter]').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    filterMode=btn.dataset.filter;
+    document.querySelectorAll('[data-filter]').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    renderGrid();
+  });
+});
+
+// ===== TIME SCOPE (bottom bar) =====
+document.querySelectorAll('[data-time]').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    timeScope=btn.dataset.time;
+    document.querySelectorAll('[data-time]').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    // for 'year' and 'all', we'd need to load more data; show info
+    if(timeScope!=='season'){
+      const sl=document.getElementById('section-label');
+      sl.style.display='flex';
+      sl.textContent=timeScope==='year'?`Todos de ${currentYear}`:`Todos os tempos — selecione a temporada acima`;
+    } else {
+      const sl=document.getElementById('section-label');
+      sl.textContent=`${SEASON_LABELS[currentSeason]} ${currentYear}`;
+    }
+  });
+});
+
+// ===== SORT / SEARCH =====
+document.getElementById('sel-sort').addEventListener('change',renderGrid);
+document.getElementById('search').addEventListener('input',renderGrid);
+
+// ===== CLEAR SEASON =====
+document.getElementById('btn-clear-season').addEventListener('click',()=>{
+  if(!confirm(`Remover todos os dados de ${SEASON_LABELS[currentSeason]} ${currentYear}?`)) return;
+  const prefix=`${currentSeason}_${currentYear}__`;
+  Object.keys(userDB).forEach(k=>{if(k.startsWith(prefix))delete userDB[k];});
+  saveDB();
+  renderGrid();
+});
+
+// ===== INIT =====
+document.getElementById('btn-load').addEventListener('click', loadSeason);
+
+populateYears();
+document.getElementById('sel-season').value=detectSeason();
+loadSeason();
+</script>
+</body>
+</html>
